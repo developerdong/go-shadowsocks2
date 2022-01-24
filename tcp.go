@@ -68,23 +68,29 @@ func tcpLocal(addr, server string, shadow func(net.Conn) net.Conn, getAddr func(
 				return
 			}
 
-			rc, err := net.Dial("tcp", server)
-			if err != nil {
-				logf("failed to connect to server %v: %v", server, err)
-				return
-			}
-			defer rc.Close()
-			if config.TCPCork {
-				rc = timedCork(rc, 10*time.Millisecond, 1280)
-			}
-			rc = shadow(rc)
+			rc, err := net.DialTimeout("tcp", tgt.String(), config.TCPTimeout)
+			if err == nil {
+				logf("direct %s <-> %s", c.RemoteAddr(), tgt)
+			} else {
+				rc, err = net.Dial("tcp", server)
+				if err != nil {
+					logf("failed to connect to server %v: %v", server, err)
+					return
+				}
+				defer rc.Close()
+				if config.TCPCork {
+					rc = timedCork(rc, 10*time.Millisecond, 1280)
+				}
+				rc = shadow(rc)
 
-			if _, err = rc.Write(tgt); err != nil {
-				logf("failed to send target address: %v", err)
-				return
+				if _, err = rc.Write(tgt); err != nil {
+					logf("failed to send target address: %v", err)
+					return
+				}
+
+				logf("proxy %s <-> %s <-> %s", c.RemoteAddr(), server, tgt)
 			}
 
-			logf("proxy %s <-> %s <-> %s", c.RemoteAddr(), server, tgt)
 			if err = relay(rc, c); err != nil {
 				logf("relay error: %v", err)
 			}
