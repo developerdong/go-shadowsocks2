@@ -85,13 +85,14 @@ func tcpLocal(addr, server string, shadow func(net.Conn) net.Conn, getAddr func(
 
 			rc, err := net.DialTimeout("tcp", tgt.String(), config.TCPTimeout)
 			if err == nil {
+				defer rc.Close()
 				// If dial target successfully, cancel dialing proxy immediately.
 				cancel()
 			}
 
-			// If err != nil, obviously we should wait for dialing proxy. If err == nil,
-			// we don't know dialing proxy is cancelled, or was successful before. If the
-			// latter one, we should close the connection. So we must wait.
+			// If err != nil, obviously we should wait for dialing proxy. If err == nil, we
+			// don't know dialing proxy is cancelled, or was successful before. If the latter
+			// one, we should close the connection. So we must wait.
 			wg.Wait()
 			if err == nil {
 				if err1 == nil {
