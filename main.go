@@ -65,7 +65,7 @@ func main() {
 	flag.BoolVar(&flags.TCP, "tcp", true, "(server-only) enable TCP support")
 	flag.BoolVar(&config.TCPCork, "tcpcork", false, "coalesce writing first few packets")
 	flag.DurationVar(&config.UDPTimeout, "udptimeout", 5*time.Minute, "UDP tunnel timeout")
-	flag.DurationVar(&config.TCPTimeout, "tcptimeout", -1, "(client-only) (default disabled) Timeout of connecting target directly before connecting through proxy")
+	flag.DurationVar(&config.TCPTimeout, "tcptimeout", -1, "(client-only) (default disabled) Timeout of dialing target directly before using proxy")
 	flag.Parse()
 
 	if flags.Keygen > 0 {
