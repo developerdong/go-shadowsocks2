@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -68,11 +69,38 @@ func tcpLocal(addr, server string, shadow func(net.Conn) net.Conn, getAddr func(
 				return
 			}
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var rc1 net.Conn
+			var err1 error
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func(ctx context.Context) {
+				// Dial proxy concurrently.
+				var d net.Dialer
+				rc1, err1 = d.DialContext(ctx, "tcp", server)
+				wg.Done()
+			}(ctx)
+
 			rc, err := net.DialTimeout("tcp", tgt.String(), config.TCPTimeout)
 			if err == nil {
+				// If dial target successfully, cancel dialing proxy immediately.
+				cancel()
+			}
+
+			// If err != nil, obviously we should wait for dialing proxy. If err == nil,
+			// we don't know dialing proxy is cancelled, or was successful before. If the
+			// latter one, we should close the connection. So we must wait.
+			wg.Wait()
+			if err == nil {
+				if err1 == nil {
+					// If dialing proxy was successful, we should close the connection.
+					_ = rc1.Close()
+				}
 				logf("direct %s <-> %s", c.RemoteAddr(), tgt)
 			} else {
-				rc, err = net.Dial("tcp", server)
+				rc, err = rc1, err1
 				if err != nil {
 					logf("failed to connect to server %v: %v", server, err)
 					return
